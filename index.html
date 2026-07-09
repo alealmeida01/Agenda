@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Semanal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EEF1F6;
+    --surface: #FFFFFF;
+    --ink: #1F2A44;
+    --ink-soft: #46527A;
+    --muted: #8891A3;
+    --line: #DDE3EE;
+    --teal: #3D6A63;
+    --teal-soft: #E4EEEC;
+    --amber: #C9642B;
+    --amber-soft: #F7E7DA;
+    --done: #B7BECB;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(31,42,68,0.04), 0 8px 24px rgba(31,42,68,0.06);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* subtle paper texture via layered radial lines */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px);
+    background-size: 100% 42px;
+    opacity:0.35;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .app{
+    position:relative;
+    z-index:1;
+    max-width:1100px;
+    margin:0 auto;
+    padding:32px 20px 80px;
+  }
+
+  header.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+    margin-bottom:28px;
+    padding-bottom:20px;
+    border-bottom:2px solid var(--ink);
+  }
+
+  .brand h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:700;
+    font-size:2.4rem;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+  }
+  .brand p{
+    margin:0;
+    color:var(--muted);
+    font-size:0.95rem;
+  }
+
+  .stats{
+    display:flex;
+    gap:22px;
+  }
+  .stat{
+    text-align:right;
+  }
+  .stat .n{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+    font-size:1.6rem;
+    line-height:1;
+    color:var(--teal);
+  }
+  .stat .l{
+    font-size:0.75rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+
+  /* Day tabs styled like a planner index tab */
+  nav.days{
+    display:flex;
+    gap:6px;
+    margin-bottom:24px;
+    overflow-x:auto;
+    padding-bottom:4px;
+  }
+  nav.days button{
+    font-family:'Inter', sans-serif;
+    font-weight:600;
+    font-size:0.85rem;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--ink-soft);
+    padding:10px 16px;
+    border-radius:10px 10px 0 0;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all .15s ease;
+    position:relative;
+    top:1px;
+  }
+  nav.days button .count{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.7rem;
+    color:var(--muted);
+    margin-left:6px;
+  }
+  nav.days button.active{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+  nav.days button.active .count{color:#c9d2e6;}
+  nav.days button.today:not(.active){
+    border-color:var(--amber);
+    color:var(--amber);
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns:1fr 320px;
+    gap:24px;
+    align-items:start;
+  }
+  @media (max-width:800px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--surface);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:22px;
+  }
+
+  .day-heading{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:16px;
+  }
+  .day-heading h2{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.5rem;
+    margin:0;
+  }
+  .day-heading span{
+    font-size:0.8rem;
+    color:var(--muted);
+  }
+
+  .task-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .empty{
+    text-align:center;
+    padding:40px 20px;
+    color:var(--muted);
+  }
+  .empty .glyph{
+    font-family:'Fraunces', serif;
+    font-size:2rem;
+    display:block;
+    margin-bottom:8px;
+    color:var(--line);
+  }
+
+  .task{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .task:hover{border-color:var(--teal);}
+  .task.done{
+    background:#FAFBFC;
+  }
+  .task.done .title{
+    text-decoration:line-through;
+    color:var(--done);
+  }
+  .task.done .time-stamp{
+    color:var(--done);
+    border-color:var(--done);
+  }
+
+  .check{
+    width:22px;height:22px;
+    border-radius:50%;
+    border:2px solid var(--teal);
+    flex-shrink:0;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    background:none;
+    margin-top:2px;
+    transition:background .15s ease;
+    padding:0;
+  }
+  .task.done .check{
+    background:var(--teal);
+  }
+  .check svg{width:12px;height:12px;stroke:#fff;display:none;}
+  .task.done .check svg{display:block;}
+
+  .task-body{flex:1; min-width:0;}
+  .task-top{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .time-stamp{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.78rem;
+    font-weight:500;
+    color:var(--teal);
+    border:1px solid var(--teal);
+    border-radius:20px;
+    padding:1px 9px;
+    transform:rotate(-1deg);
+    flex-shrink:0;
+  }
+  .title{
+    font-weight:600;
+    font-size:0.98rem;
+  }
+  .tag{
+    font-size:0.68rem;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    padding:2px 8px;
+    border-radius:20px;
+    font-weight:600;
+  }
+  .notes{
+    margin-top:4px;
+    font-size:0.85rem;
+    color:var(--muted);
+  }
+  .del{
+    background:none;
+    border:none;
+    color:var(--muted);
+    cursor:pointer;
+    font-size:1.1rem;
+    line-height:1;
+    padding:4px;
+    flex-shrink:0;
+  }
+  .del:hover{color:var(--amber);}
+
+  /* form panel */
+  .panel.form h2{
+    font-family:'Fraunces', serif;
+    font-size:1.2rem;
+    font-weight:600;
+    margin:0 0 16px;
+  }
+  label{
+    display:block;
+    font-size:0.75rem;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--muted);
+    margin:14px 0 6px;
+  }
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=time], select, textarea{
+    width:100%;
+    font-family:'Inter', sans-serif;
+    font-size:0.92rem;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  input:focus, select:focus, textarea:focus{
+    outline:2px solid var(--teal);
+    outline-offset:1px;
+    background:var(--surface);
+  }
+  textarea{resize:vertical; min-height:56px; font-family:'Inter', sans-serif;}
+
+  .day-select{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:4px;
+  }
+  .day-select button{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    padding:7px 0;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--ink-soft);
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .day-select button.sel{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+
+  .submit-btn{
+    margin-top:18px;
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:var(--teal);
+    color:#fff;
+    font-weight:600;
+    font-size:0.95rem;
+    cursor:pointer;
+    transition:filter .15s ease;
+  }
+  .submit-btn:hover{filter:brightness(1.08);}
+
+  footer.note{
+    text-align:center;
+    margin-top:28px;
+    font-size:0.78rem;
+    color:var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <h1>Agenda da Semana</h1>
+      <p>Organize seus compromissos por dia e horário</p>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="n" id="statPending">0</div>
+        <div class="l">pendentes</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="statDone">0</div>
+        <div class="l">concluídas</div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="days" id="dayTabs"></nav>
+
+  <div class="layout">
+    <section class="panel">
+      <div class="day-heading">
+        <h2 id="dayTitle">Segunda-feira</h2>
+        <span id="dayCount">0 tarefas</span>
+      </div>
+      <ul class="task-list" id="taskList"></ul>
+    </section>
+
+    <section class="panel form">
+      <h2>Nova tarefa</h2>
+      <form id="taskForm">
+        <label>Dia(s)</label>
+        <div class="day-select" id="daySelect"></div>
+
+        <label for="fTime">Horário</label>
+        <input type="time" id="fTime" value="09:00" required>
+
+        <label for="fTitle">O que você precisa fazer</label>
+        <input type="text" id="fTitle" placeholder="Ex: Reunião com o time" required>
+
+        <label for="fCategory">Categoria</label>
+        <select id="fCategory">
+          <option value="trabalho">Trabalho</option>
+          <option value="pessoal">Pessoal</option>
+          <option value="saude">Saúde</option>
+          <option value="estudo">Estudo</option>
+          <option value="outro">Outro</option>
+        </select>
+
+        <label for="fNotes">Notas (opcional)</label>
+        <textarea id="fNotes" placeholder="Detalhes, local, link..."></textarea>
+
+        <button type="submit" class="submit-btn">Adicionar à agenda</button>
+      </form>
+    </section>
+  </div>
+
+  <footer class="note">Seus dados ficam salvos neste navegador (localStorage).</footer>
+</div>
+
+<script>
+(function(){
+  const DAYS = [
+    {key:'seg', label:'Segunda-feira', short:'Seg'},
+    {key:'ter', label:'Terça-feira', short:'Ter'},
+    {key:'qua', label:'Quarta-feira', short:'Qua'},
+    {key:'qui', label:'Quinta-feira', short:'Qui'},
+    {key:'sex', label:'Sexta-feira', short:'Sex'},
+    {key:'sab', label:'Sábado', short:'Sáb'},
+    {key:'dom', label:'Domingo', short:'Dom'},
+  ];
+
+  const CATEGORY_COLORS = {
+    trabalho: {bg:'#E4EEEC', fg:'#3D6A63'},
+    pessoal:  {bg:'#F0E9F7', fg:'#7A4FA0'},
+    saude:    {bg:'#FBE7E9', fg:'#B4485A'},
+    estudo:   {bg:'#E6EEFB', fg:'#3B5FA8'},
+    outro:    {bg:'#F7E7DA', fg:'#C9642B'},
+  };
+  const CATEGORY_LABEL = {
+    trabalho:'Trabalho', pessoal:'Pessoal', saude:'Saúde', estudo:'Estudo', outro:'Outro'
+  };
+
+  const todayIdx = (() => {
+    // JS: 0=domingo ... 6=sábado. Map to our order (seg..dom)
+    const map = [6,0,1,2,3,4,5];
+    return map[new Date().getDay()];
+  })();
+
+  const STORAGE_KEY = 'agenda-semanal-tasks';
+  let tasks = [];
+  let activeDay = DAYS[todayIdx].key;
+  let selectedFormDays = new Set([activeDay]);
+
+  function loadTasks(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      tasks = raw ? JSON.parse(raw) : seedExample();
+    }catch(e){
+      tasks = seedExample();
+    }
+  }
+
+  function saveTasks(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }catch(e){
+      console.warn('Não foi possível salvar no localStorage:', e);
+    }
+  }
+
+  function seedExample(){
+    return [
+      {id: crypto.randomUUID(), day:'seg', time:'09:00', title:'Planejar a semana', category:'trabalho', notes:'', done:false},
+      {id: crypto.randomUUID(), day:'seg', time:'19:00', title:'Academia', category:'saude', notes:'', done:false},
+    ];
+  }
+
+  function uid(){
+    return (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + Math.random());
+  }
+
+  // ---- Render day tabs ----
+  function renderTabs(){
+    const nav = document.getElementById('dayTabs');
+    nav.innerHTML = '';
+    DAYS.forEach((d, i) => {
+      const btn = document.createElement('button');
+      const count = tasks.filter(t => t.day === d.key && !t.done).length;
+      btn.className = (d.key === activeDay ? 'active ' : '') + (i === todayIdx ? 'today' : '');
+      btn.innerHTML = d.short + (count ? `<span class="count">${count}</span>` : '');
+      btn.addEventListener('click', () => { activeDay = d.key; renderAll(); });
+      nav.appendChild(btn);
+    });
+  }
+
+  // ---- Render task list for active day ----
+  function renderTasks(){
+    const dayInfo = DAYS.find(d => d.key === activeDay);
+    document.getElementById('dayTitle').textContent = dayInfo.label;
+    const dayTasks = tasks
+      .filter(t => t.day === activeDay)
+      .sort((a,b) => a.time.localeCompare(b.time));
+
+    document.getElementById('dayCount').textContent =
+      dayTasks.length + (dayTasks.length === 1 ? ' tarefa' : ' tarefas');
+
+    const list = document.getElementById('taskList');
+    list.innerHTML = '';
+
+    if(dayTasks.length === 0){
+      const empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.innerHTML = `<span class="glyph">—</span>Nenhuma tarefa para ${dayInfo.label.toLowerCase()} ainda.`;
+      list.appendChild(empty);
+      return;
+    }
+
+    dayTasks.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'task' + (t.done ? ' done' : '');
+      const colors = CATEGORY_COLORS[t.category] || CATEGORY_COLORS.outro;
+
+      li.innerHTML = `
+        <button class="check" aria-label="Marcar como concluída">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+        <div class="task-body">
+          <div class="task-top">
+            <span class="time-stamp">${t.time}</span>
+            <span class="title">${escapeHtml(t.title)}</span>
+            <span class="tag" style="background:${colors.bg};color:${colors.fg}">${CATEGORY_LABEL[t.category] || 'Outro'}</span>
+          </div>
+          ${t.notes ? `<div class="notes">${escapeHtml(t.notes)}</div>` : ''}
+        </div>
+        <button class="del" aria-label="Remover tarefa">✕</button>
+      `;
+
+      li.querySelector('.check').addEventListener('click', () => {
+        t.done = !t.done;
+        saveTasks();
+        renderAll();
+      });
+      li.querySelector('.del').addEventListener('click', () => {
+        tasks = tasks.filter(x => x.id !== t.id);
+        saveTasks();
+        renderAll();
+      });
+
+      list.appendChild(li);
+    });
+  }
+
+  function renderStats(){
+    document.getElementById('statPending').textContent = tasks.filter(t => !t.done).length;
+    document.getElementById('statDone').textContent = tasks.filter(t => t.done).length;
+  }
+
+  function renderDaySelect(){
+    const wrap = document.getElementById('daySelect');
+    wrap.innerHTML = '';
+    DAYS.forEach(d => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = d.short;
+      btn.className = selectedFormDays.has(d.key) ? 'sel' : '';
+      btn.addEventListener('click', () => {
+        if(selectedFormDays.has(d.key)){
+          if(selectedFormDays.size > 1) selectedFormDays.delete(d.key);
+        } else {
+          selectedFormDays.add(d.key);
+        }
+        renderDaySelect();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderAll(){
+    renderTabs();
+    renderTasks();
+    renderStats();
+  }
+
+  // ---- Form submit ----
+  document.getElementById('taskForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const time = document.getElementById('fTime').value;
+    const title = document.getElementById('fTitle').value.trim();
+    const category = document.getElementById('fCategory').value;
+    const notes = document.getElementById('fNotes').value.trim();
+
+    if(!title || !time || selectedFormDays.size === 0) return;
+
+    selectedFormDays.forEach(dayKey => {
+      tasks.push({
+        id: uid(),
+        day: dayKey,
+        time, title, category, notes,
+        done: false
+      });
+    });
+
+    saveTasks();
+    document.getElementById('fTitle').value = '';
+    document.getElementById('fNotes').value = '';
+    renderAll();
+  });
+
+  // ---- Init ----
+  loadTasks();
+  selectedFormDays = new Set([activeDay]);
+  renderDaySelect();
+  renderAll();
+})();
+</script>
+</body>
+</html>
